@@ -88,19 +88,40 @@ def find_metric(d: dict, needle: str) -> float | None:
     return None
 
 
+def require_env(name: str) -> str:
+    """Reads a required environment variable, failing fast with an
+    actionable message instead of letting an empty value reach the Azure SDK.
+
+    GitHub Actions sets a referenced-but-unconfigured secret to an empty
+    string rather than leaving it unset, so a plain os.environ[...] lookup
+    doesn't raise KeyError - it silently passes "" through to
+    GroundednessEvaluator, which then fails with a confusing
+    MutuallyExclusiveAuthError about api_key/azure_ad_token instead of
+    pointing at the real problem: a missing repository secret.
+    """
+    value = os.environ.get(name, "")
+    if not value:
+        raise SystemExit(
+            f"{name} is not set. Locally: export {name}=... "
+            f"In CI: add it as a repository secret under "
+            f"Settings -> Secrets and variables -> Actions."
+        )
+    return value
+
+
 def main() -> int:
     dataset = json.loads(DATASET_PATH.read_text())
     threshold = dataset["groundedness_threshold"]
 
-    print(f"[Local] Generating responses for {len(dataset['cases'])} golden case(s)...")
-    generate_responses(dataset["cases"])
-
     model_config = {
-        "azure_endpoint": os.environ["AZURE_OPENAI_ENDPOINT"],
-        "api_key": os.environ["AZURE_OPENAI_API_KEY"],
-        "azure_deployment": os.environ["AZURE_OPENAI_DEPLOYMENT"],
+        "azure_endpoint": require_env("AZURE_OPENAI_ENDPOINT"),
+        "api_key": require_env("AZURE_OPENAI_API_KEY"),
+        "azure_deployment": require_env("AZURE_OPENAI_DEPLOYMENT"),
     }
     groundedness_evaluator = GroundednessEvaluator(model_config=model_config)
+
+    print(f"[Local] Generating responses for {len(dataset['cases'])} golden case(s)...")
+    generate_responses(dataset["cases"])
 
     print("[Cloud] Scoring groundedness with Azure AI Evaluation...")
     result = evaluate(
