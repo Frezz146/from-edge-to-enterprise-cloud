@@ -7,6 +7,13 @@ call tools as reliably as a large model in the cloud, given the exact same
 tool schema? MCP is what lets both backends share that schema unchanged -
 the server in mcp_server.py doesn't know or care which model is calling it.
 
+Built directly on the raw MCP and Foundry Local SDKs rather than a higher-
+level agent framework, on purpose: this part's whole point is measuring
+tool-call reliability and error rates, and that means inspecting each
+attempt's raw arguments and outcome. A framework that auto-executes tool
+calls for you hides exactly the detail this script exists to look at - see
+schema_hardening_eval.py for where that distinction really matters.
+
 Usage:
     python mcp_client.py                 # local model only
     python mcp_client.py --compare-cloud # local model + Azure OpenAI, side by side
@@ -24,7 +31,7 @@ from mcp.client.stdio import stdio_client
 from foundry_local_sdk import Configuration, FoundryLocalManager
 
 MODEL_ALIAS = "qwen2.5-0.5b"
-APP_NAME = "from_edge_to_enterprise_mcp_agent"
+APP_NAME = "frezz_tech_mcp_agent"
 SERVER_SCRIPT = str(Path(__file__).parent / "mcp_server.py")
 
 SYSTEM_PROMPT = (

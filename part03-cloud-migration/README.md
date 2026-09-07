@@ -55,3 +55,24 @@ dotnet run
 
 The C# sample runs a plain instructions-only agent turn; the function-tool
 wiring mirroring Part 2's tools is fully worked out in `cloud_agent.py`.
+
+## Files in this part
+
+```text
+part03-cloud-migration/
+├── python/
+│   ├── requirements.txt   azure-ai-projects (pinned to the 1.x line - see the comment in the file for why), azure-ai-agents, azure-identity
+│   └── cloud_agent.py      AIProjectClient + AgentsClient hosted agent, function tools mirroring Part 2
+└── csharp/
+    └── cloud-agent/
+        ├── cloud-agent.csproj   Azure.AI.Agents.Persistent, Azure.Identity
+        └── Program.cs           Azure.AI.Agents.Persistent hosted agent (instructions-only, see above)
+```
+
+There's only one project per language in this part - no separate quickstart
+and deep-dive split like Parts 1 and 2, since a hosted agent run has less
+surface area to demo in stages: create the agent, run it, read the answer,
+clean up. `cloud_agent.py` is the fuller of the two (it also wires up
+function tools); the C# sample intentionally stays instructions-only rather
+than re-deriving the same function-tool plumbing in a different SDK - see
+"What actually changes" above for why.

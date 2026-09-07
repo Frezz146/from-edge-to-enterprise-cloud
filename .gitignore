@@ -109,6 +109,7 @@ evaluation-results/
 evaluation_results.json
 _eval_data.jsonl
 latency-benchmark.png
+schema-hardening.png
 logs/
 *.log
 *.trace

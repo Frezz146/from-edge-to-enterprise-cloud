@@ -47,3 +47,21 @@ likely to drift.
 request, using repository secrets for the Azure OpenAI judge credentials. A
 failing gate blocks the merge - see that workflow for the exact trigger and
 secret configuration.
+
+## Files in this part
+
+```text
+part04-observability-evals/
+└── python/
+    ├── requirements.txt     foundry-local-sdk, azure-ai-evaluation
+    ├── eval_pipeline.py      the regression gate: local model responses -> GroundednessEvaluator -> pass/fail
+    └── golden_dataset.json   the golden (query, context) cases and the groundedness_threshold to gate on
+```
+
+Python only - this part is a CI/CD quality gate, not a language-parity demo
+like Parts 1-3, so there's no C# counterpart. `golden_dataset.json` is data,
+not code, kept separate from `eval_pipeline.py` so extending the golden set
+(see "Extending the golden dataset" above) never means touching the
+pipeline logic. `evaluation_results.json` and `_eval_data.jsonl`, written by
+a run of `eval_pipeline.py`, are git-ignored the same way the benchmark
+charts in Parts 1-2 are - they're this run's output, not repo content.

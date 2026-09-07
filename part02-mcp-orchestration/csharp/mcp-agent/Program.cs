@@ -1,11 +1,13 @@
 // Connects a Foundry Local chat model to tools exposed over MCP by the
-// Python server in this part (../../python/mcp_server.py) - a concrete
-// demonstration that MCP doesn't care what language either side is
-// written in.
+// standalone server in this part (../mcp-server) - a C# client talking to
+// a C# server, no Python required. See ../../python/mcp_client.py for the
+// same idea built against the Python server instead: same architecture,
+// independent implementations, so neither language track depends on the
+// other to run.
 //
 // Discovers the server's tools, then runs one tool-calling turn against the
 // local model using a hand-declared tool schema mirroring get_weather() -
-// see mcp_client.py for the fuller local-vs-cloud reliability comparison.
+// see schema-hardening-eval for the deeper local-vs-cloud reliability study.
 
 using System.Text.Json;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
@@ -24,11 +26,13 @@ const string appName = "from_edge_to_enterprise_mcp_agent";
 CancellationToken ct = CancellationToken.None;
 
 // Path is relative to the project directory (`dotnet run`'s working directory).
+// `dotnet run --project` builds ../mcp-server on demand if needed, so this
+// works on a fresh clone with no separate build step.
 var transport = new StdioClientTransport(new StdioClientTransportOptions
 {
     Name = "edge-to-enterprise-tools",
-    Command = "python3",
-    Arguments = ["../../python/mcp_server.py"],
+    Command = "dotnet",
+    Arguments = ["run", "--project", "../mcp-server/mcp-server.csproj"],
 });
 
 await using var mcpClient = await McpClient.CreateAsync(transport);

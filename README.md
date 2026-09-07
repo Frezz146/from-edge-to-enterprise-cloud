@@ -9,7 +9,7 @@ The examples are intentionally incremental. Each part adds one architectural cap
 ## The journey
 
 1. **Local development** - Run a small language model in-process with the Foundry Local GA SDK.
-2. **MCP orchestration** - Connect the model to tools and capabilities through the Model Context Protocol.
+2. **MCP orchestration** - Connect the model to tools through the Model Context Protocol, then measure how much a hardened JSON schema closes the tool-call error gap between a compact local model and a cloud frontier model.
 3. **Cloud migration** - Move selected workloads to the Foundry Agent Service with `AIProjectClient`.
 4. **Observability and evaluations** - Automate quality checks with groundedness evaluation in CI/CD.
 
@@ -22,7 +22,7 @@ cd part01-local-development/python
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-python main.py
+python local-loop.py
 # python benchmark.py   # local vs. cloud latency/throughput comparison
 ```
 
@@ -42,9 +42,10 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python mcp_client.py
+# python schema_hardening_eval.py   # the actual loose-vs-strict schema study
 ```
 
-See [part02-mcp-orchestration/README.md](part02-mcp-orchestration/README.md) for the C# sample and the local-vs-cloud tool-calling reliability comparison.
+See [part02-mcp-orchestration/README.md](part02-mcp-orchestration/README.md) for the C# samples and the schema hardening study - a matched pair of tools (same task, different schema rigor) run through an error taxonomy, not just a pass/fail check. Python and C# each ship their own independent MCP server, so neither language track needs the other installed to run.
 
 ### Part 03 - Cloud migration
 
@@ -75,7 +76,7 @@ from-edge-to-enterprise-cloud/
 │   ├── README.md
 │   ├── python/
 │   │   ├── requirements.txt
-│   │   ├── main.py
+│   │   ├── local-loop.py
 │   │   └── benchmark.py
 │   └── csharp/
 │       ├── local-loop/
@@ -89,10 +90,17 @@ from-edge-to-enterprise-cloud/
 │   ├── python/
 │   │   ├── requirements.txt
 │   │   ├── mcp_server.py
-│   │   └── mcp_client.py
+│   │   ├── mcp_client.py
+│   │   └── schema_hardening_eval.py
 │   └── csharp/
-│       └── mcp-agent/
-│           ├── mcp-agent.csproj
+│       ├── mcp-server/
+│       │   ├── mcp-server.csproj
+│       │   └── Program.cs
+│       ├── mcp-agent/
+│       │   ├── mcp-agent.csproj
+│       │   └── Program.cs
+│       └── schema-hardening-eval/
+│           ├── schema-hardening-eval.csproj
 │           └── Program.cs
 ├── part03-cloud-migration/
 │   ├── README.md

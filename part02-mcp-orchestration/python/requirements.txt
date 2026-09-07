@@ -1,5 +1,8 @@
 foundry-local-sdk==1.2.3
-mcp==1.9.4
+mcp==1.30.0
 
-# Optional: only needed for `python mcp_client.py --compare-cloud`
+# Optional: only needed for `--compare-cloud` (mcp_client.py, schema_hardening_eval.py)
 # openai>=1.50.0
+
+# Optional: only needed by schema_hardening_eval.py to save schema-hardening.png
+# matplotlib>=3.8.0
