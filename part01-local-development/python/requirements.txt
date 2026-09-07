@@ -1,0 +1,9 @@
+foundry-local-sdk==1.2.3
+
+# Optional: only needed by benchmark.py's cloud comparison
+# (skipped automatically when AZURE_OPENAI_* env vars are unset).
+# openai>=1.50.0
+
+# Optional: only needed by benchmark.py to save latency-benchmark.png
+# (skipped with a hint if not installed).
+# matplotlib>=3.8.0

@@ -1,0 +1,22 @@
+{
+    "version": 2,
+    "description": "Golden dataset for regression-testing the agent from Parts 1-3. Each case pairs a query with the context the agent is expected to ground its answer in - a model update or prompt change that starts hallucinating beyond this context should fail the groundedness gate in eval_pipeline.py.",
+    "groundedness_threshold": 4.0,
+    "cases": [
+        {
+            "id": "local-inference-baseline",
+            "query": "What does local inference mean?",
+            "context": "Local inference means the model runs on the developer's own machine using Foundry Local, which downloads a hardware-optimized model variant, loads it into memory, and serves chat completions in-process without sending any data to a remote endpoint."
+        },
+        {
+            "id": "mcp-tool-boundary",
+            "query": "How does the agent know which tools it can call?",
+            "context": "In Part 2, tools are exposed by an MCP server over stdio. The client calls list_tools() to discover each tool's name, description and JSON schema, then passes that schema to the model's tool-calling API unchanged."
+        },
+        {
+            "id": "cloud-migration-identity",
+            "query": "What changes when the agent moves from a local prototype to Foundry Agent Service?",
+            "context": "Moving to Foundry Agent Service replaces the local model lifecycle with a hosted model deployment name, adds Microsoft Entra authentication via DefaultAzureCredential, and lets the SDK poll runs and invoke function tools automatically instead of a hand-written tool-calling loop."
+        }
+    ]
+}

@@ -1,0 +1,5 @@
+foundry-local-sdk==1.2.3
+mcp==1.9.4
+
+# Optional: only needed for `python mcp_client.py --compare-cloud`
+# openai>=1.50.0

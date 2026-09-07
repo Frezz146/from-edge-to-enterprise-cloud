@@ -1,0 +1,6 @@
+# Pinned to the 1.x line on purpose: azure-ai-projects 2.x replaces the
+# threads/runs Assistants-style agent API used here with a different
+# Responses-API-based model (PromptAgentDefinition, conversations, etc.).
+azure-ai-projects==1.0.0
+azure-ai-agents==1.1.0
+azure-identity==1.25.3

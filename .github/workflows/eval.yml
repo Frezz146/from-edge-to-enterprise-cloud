@@ -1,0 +1,45 @@
+name: Agent regression evals
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "part04-observability-evals/**"
+      - "part01-local-development/python/**"
+  pull_request:
+    paths:
+      - "part04-observability-evals/**"
+      - "part01-local-development/python/**"
+  workflow_dispatch:
+
+jobs:
+  groundedness-gate:
+    # Foundry Local falls back to CPU execution providers when no NPU/GPU is
+    # available, so a hosted runner works - expect slower inference than on
+    # developer hardware. Prefer a self-hosted runner for consistent timing.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: part04-observability-evals/python
+        run: python -m pip install -r requirements.txt
+
+      - name: Run groundedness regression gate
+        working-directory: part04-observability-evals/python
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+        run: python eval_pipeline.py
+
+      - name: Upload evaluation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: part04-observability-evals/python/evaluation_results.json
