@@ -71,9 +71,25 @@ public static class CalculatorTools
     }
 }
 
-public record Attendee(
-    [property: Description("Full name of the meeting attendee")] string Name,
-    [property: Description("Attendee's email address")] string Email);
+// `required` on both properties matters, not just documentation: a plain
+// positional record (Attendee(string Name, string Email)) has no equivalent
+// to Pydantic's "fields without a default are required" - System.Text.Json
+// silently deserializes a JSON object missing "name" into Name = null
+// instead of throwing, so a model that drops the field gets a *successful*
+// booking with a blank name instead of the loud rejection the strict schema
+// is supposed to guarantee (verified live: without `required`, this let a
+// call with a nested attendee missing "name" through as IsError=false).
+// `required` on an init-only property is respected by System.Text.Json's
+// deserializer by default (since .NET 7) and produces exactly the missing-
+// field error this tool's schema promises.
+public record Attendee
+{
+    [Description("Full name of the meeting attendee")]
+    public required string Name { get; init; }
+
+    [Description("Attendee's email address")]
+    public required string Email { get; init; }
+}
 
 public enum Priority { Low, Medium, High }
 
@@ -101,7 +117,7 @@ public static class BookingTools
         [Description("their contact")] string attendeeEmail,
         [Description("what to discuss")] string topics,
         [Description("how urgent")] string priority,
-        [Description("how long")] string durationMinutes)
+        [Description("how long, in minutes")] int durationMinutes)
     {
         return new { status = "booked", attendeeName, attendeeEmail, topics, priority, durationMinutes };
     }

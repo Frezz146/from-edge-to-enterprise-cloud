@@ -93,7 +93,7 @@ def book_appointment_loose(
     attendee_email: str = Field(description="their contact"),
     topics: str = Field(description="what to discuss"),
     priority: str = Field(description="how urgent"),
-    duration_minutes: str = Field(description="how long"),
+    duration_minutes: int = Field(description="how long, in minutes"),
 ) -> dict:
     """Book a meeting."""
     return {

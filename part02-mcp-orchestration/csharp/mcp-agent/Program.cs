@@ -21,9 +21,19 @@ using ModelContextProtocol.Protocol;
 // ToolChoice type - alias the one we mean to avoid CS0104 ambiguity.
 using FoundryToolChoice = Betalgo.Ranul.OpenAI.ObjectModels.RequestModels.ToolChoice;
 
-const string modelAlias = "qwen2.5-0.5b";
+const string defaultModelAlias = "qwen2.5-0.5b";
 const string appName = "from_edge_to_enterprise_mcp_agent";
 CancellationToken ct = CancellationToken.None;
+
+// --model <alias...> overrides the model(s) under test, run one after
+// another, e.g. `dotnet run -- --model qwen2.5-1.5b qwen2.5-7b`. Run
+// `foundry model list` to see what's actually available on your hardware.
+List<string> modelAliases = [defaultModelAlias];
+var modelArgIndex = Array.IndexOf(args, "--model");
+if (modelArgIndex >= 0 && modelArgIndex + 1 < args.Length)
+{
+    modelAliases = args.Skip(modelArgIndex + 1).ToList();
+}
 
 // Path is relative to the project directory (`dotnet run`'s working directory).
 // `dotnet run --project` builds ../mcp-server on demand if needed, so this
@@ -64,14 +74,6 @@ try
     if (currentEp != "") Console.WriteLine();
 
     var catalog = await manager.GetCatalogAsync();
-    var model = await catalog.GetModelAsync(modelAlias)
-        ?? throw new InvalidOperationException($"Model '{modelAlias}' not found in the catalog.");
-    await model.DownloadAsync(progress => Console.Write($"\rDownloading model: {progress:F1}%"));
-    Console.WriteLine();
-    await model.LoadAsync();
-
-    var chatClient = await model.GetChatClientAsync();
-    chatClient.Settings.ToolChoice = FoundryToolChoice.Required;
 
     // The schema below mirrors get_weather() in mcp_server.py by hand -
     // there is no automatic MCP-schema-to-Foundry-ToolDefinition conversion
@@ -99,55 +101,73 @@ try
         },
     ];
 
-    List<ChatMessage> messages =
-    [
-        new ChatMessage { Role = "system", Content = "You are a helpful assistant. Use tools when needed." },
-        new ChatMessage { Role = "user", Content = "What's the weather in Berlin?" },
-    ];
-
-    Console.WriteLine("\n[User]: What's the weather in Berlin?");
-    Console.Write("[Assistant]: ");
-
-    var toolCallChunks = new List<ChatCompletionCreateResponse>();
-    await foreach (var chunk in chatClient.CompleteChatStreamingAsync(messages, tools, ct))
+    // One model at a time, loaded then unloaded before the next - a
+    // --model sweep across several sizes would otherwise try to hold every
+    // model's weights in memory simultaneously.
+    foreach (var modelAlias in modelAliases)
     {
-        Console.Write(chunk.Choices[0].Message.Content);
-        if (chunk.Choices[0].FinishReason == "tool_calls")
+        Console.WriteLine($"\n[System] Loading model '{modelAlias}'...");
+        var model = await catalog.GetModelAsync(modelAlias)
+            ?? throw new InvalidOperationException($"Model '{modelAlias}' not found in the catalog.");
+        Console.WriteLine($"  capabilities={model.Info.Capabilities ?? "(null)"} supportsToolCalling={model.Info.SupportsToolCalling?.ToString() ?? "(null)"}");
+        await model.DownloadAsync(progress => Console.Write($"\rDownloading model: {progress:F1}%"));
+        Console.WriteLine();
+        await model.LoadAsync();
+
+        var chatClient = await model.GetChatClientAsync();
+        chatClient.Settings.ToolChoice = FoundryToolChoice.Required;
+
+        List<ChatMessage> messages =
+        [
+            new ChatMessage { Role = "system", Content = "You are a helpful assistant. Use tools when needed." },
+            new ChatMessage { Role = "user", Content = "What's the weather in Berlin?" },
+        ];
+
+        Console.WriteLine($"\n=== local ({modelAlias}) ===");
+        Console.WriteLine("[User]: What's the weather in Berlin?");
+        Console.Write("[Assistant]: ");
+
+        var toolCallChunks = new List<ChatCompletionCreateResponse>();
+        await foreach (var chunk in chatClient.CompleteChatStreamingAsync(messages, tools, ct))
         {
-            toolCallChunks.Add(chunk);
+            Console.Write(chunk.Choices[0].Message.Content);
+            if (chunk.Choices[0].FinishReason == "tool_calls")
+            {
+                toolCallChunks.Add(chunk);
+            }
         }
-    }
-    Console.WriteLine();
+        Console.WriteLine();
 
-    foreach (var chunk in toolCallChunks)
-    {
-        var call = chunk.Choices[0].Message.ToolCalls?[0].FunctionCall;
-        if (call?.Name != "get_weather") continue;
-
-        var toolArgs = JsonSerializer.Deserialize<Dictionary<string, object?>>(call.Arguments!)!;
-        Console.WriteLine($"\n  -> tool call: get_weather({call.Arguments})");
-
-        var mcpResult = await mcpClient.CallToolAsync("get_weather", toolArgs, cancellationToken: ct);
-        var resultText = mcpResult.Content.OfType<TextContentBlock>().First().Text;
-        Console.WriteLine($"  -> tool result: {resultText}");
-
-        messages.Add(new ChatMessage
+        foreach (var chunk in toolCallChunks)
         {
-            Role = "tool",
-            ToolCallId = chunk.Choices[0].Message.ToolCalls![0].Id,
-            Content = resultText,
-        });
-    }
+            var call = chunk.Choices[0].Message.ToolCalls?[0].FunctionCall;
+            if (call?.Name != "get_weather") continue;
 
-    chatClient.Settings.ToolChoice = FoundryToolChoice.Auto;
-    Console.Write("\n[Assistant]: ");
-    await foreach (var chunk in chatClient.CompleteChatStreamingAsync(messages, tools, ct))
-    {
-        Console.Write(chunk.Choices[0].Message.Content);
-    }
-    Console.WriteLine();
+            var toolArgs = JsonSerializer.Deserialize<Dictionary<string, object?>>(call.Arguments!)!;
+            Console.WriteLine($"\n  -> tool call: get_weather({call.Arguments})");
 
-    await model.UnloadAsync();
+            var mcpResult = await mcpClient.CallToolAsync("get_weather", toolArgs, cancellationToken: ct);
+            var resultText = mcpResult.Content.OfType<TextContentBlock>().First().Text;
+            Console.WriteLine($"  -> tool result: {resultText}");
+
+            messages.Add(new ChatMessage
+            {
+                Role = "tool",
+                ToolCallId = chunk.Choices[0].Message.ToolCalls![0].Id,
+                Content = resultText,
+            });
+        }
+
+        chatClient.Settings.ToolChoice = FoundryToolChoice.Auto;
+        Console.Write("\n[Assistant]: ");
+        await foreach (var chunk in chatClient.CompleteChatStreamingAsync(messages, tools, ct))
+        {
+            Console.Write(chunk.Choices[0].Message.Content);
+        }
+        Console.WriteLine();
+
+        await model.UnloadAsync();
+    }
 }
 finally
 {
