@@ -35,9 +35,6 @@ This part ships three things per language:
    (in Python) both a local and a cloud model. Python and C# use the
    *same* taxonomy - see below.
 
-If you only read one section before writing the blog post, read
-"The schema hardening study" below - that's where the numbers live.
-
 ## Why MCP here
 
 MCP separates "what a tool looks like" from "which model is calling it". A
@@ -339,34 +336,6 @@ rate? The `SERVER_REJECTED` category exists because server-side validation
 on the strict tool catches type/enum violations *before* they'd otherwise
 succeed silently - that's the concrete mechanism behind "harden your
 schemas," not just an assertion.
-
-## What to look for (for the blog)
-
-- **The loose/strict clean-rate gap for the local model** is the headline
-  number - it's the direct answer to "how much does hardening help a small
-  model."
-- **Which error categories dominate the loose column** tells the more
-  specific story: if it's mostly `WRONG_PRIORITY`, the lesson is "use
-  enums"; if it's mostly `WRONG_DURATION`, it's "use typed numbers, not
-  free-text units."
-- **Whether `SERVER_REJECTED` ever fires** is worth calling out explicitly -
-  it means the hardened schema turned a silent wrong answer into a loud,
-  catchable protocol error the caller can retry or escalate on, which a
-  loose schema can never do no matter how good the model is.
-- **The gap between the local and cloud columns, per schema variant** shows
-  whether hardening closes the small-vs-frontier-model gap or just lowers
-  both error rates in parallel - run `--compare-cloud` to get that number.
-  Don't be surprised if the local model's strict clean-rate is *lower* than
-  its loose one, dominated by `SERVER_REJECTED` - see the note below on why
-  that's a real, worth-reporting finding, not a bug.
-- **A `SERVER_REJECTED` cluster with the exact same shape every time** (same
-  field, same wrong/missing value, across every case regardless of phrasing)
-  is a different story than scattered, varied rejections - it points at a
-  structural quirk in that model build rather than a general capability
-  ceiling. Both language tracks print the rejected arguments and the MCP
-  server's own validation message on every `SERVER_REJECTED`, so you can
-  tell which one you're looking at instead of guessing - see the
-  `qwen2.5-7b` example below.
 
 ## A note on "flat vs. nested" as a hardening strategy - and where it backfires
 
