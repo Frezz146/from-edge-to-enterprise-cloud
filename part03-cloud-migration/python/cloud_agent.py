@@ -1,110 +1,123 @@
-"""The same tool-calling agent from Part 2, now hosted in Foundry Agent
-Service instead of running in-process on developer hardware.
+"""The same tool-calling agent from Part 2, now running on Foundry Agent Service's
+Conversations-era Agent Framework stack instead of the Assistants-style
+threads/runs API this part used before.
 
 What actually changes moving from local to cloud:
-  - The model is a Foundry project deployment name, not a local alias -
-    no more download/load/unload lifecycle, the service manages that.
-  - Identity: DefaultAzureCredential (Microsoft Entra) replaces "nothing",
-    since there was no auth boundary to cross when everything ran locally.
+  - The model is a Foundry project deployment name, not a local alias - no more
+    download/load/unload lifecycle, the service manages that.
+  - Identity: DefaultAzureCredential (Microsoft Entra) replaces "nothing", since
+    there was no auth boundary to cross when everything ran locally.
   - Tools are still plain Python functions with type hints and docstrings -
-    FunctionTool inspects them to build the same kind of JSON schema MCP
-    tools expose, so the *shape* of "what a tool is" doesn't change.
-  - The tool-calling loop itself disappears: `enable_auto_function_calls`
-    lets the SDK poll the run and invoke your functions automatically,
-    where Part 1/2 wrote that loop by hand against the native chat client.
+    Agent Framework inspects them to build the same kind of JSON schema MCP tools
+    expose, so the *shape* of "what a tool is" doesn't change.
+  - New in this part: a Foundry Toolbox. `create_toolbox.py` registers Code
+    Interpreter and Web Search behind one governed, versioned endpoint; this
+    script's agent uses that toolbox exactly the way it uses its own Python
+    functions, through `FoundryToolbox` (a thin MCP client wrapper), not through
+    a separate integration per tool.
+  - New in this part: server-managed conversation state. `agent.create_session()`
+    stores nothing but an opaque ID locally (`session.service_session_id`); the
+    actual message history lives in the Foundry project, addressed by that ID.
+  - New in this part: declarative, versioned agent definitions. `to_prompt_agent`
+    converts the same in-process `Agent` into a `PromptAgentDefinition` and
+    `client.agents.create_version` publishes it - the definition this script runs
+    against and the one Foundry can serve as a standalone hosted agent are the
+    same artifact.
 
 Required environment variables:
-  PROJECT_ENDPOINT       e.g. https://<account>.services.ai.azure.com/api/projects/<project>
-  MODEL_DEPLOYMENT_NAME  e.g. gpt-4o-mini
-
-Note: instead of local Python functions, Foundry Agent Service can also call
-a remote MCP server directly via the built-in MCP tool (`azure.ai.agents.models.MCPTool`),
-which would let this agent reuse mcp_server.py from Part 2 unchanged - provided
-it is reachable over HTTP(S) rather than local stdio. See:
-https://learn.microsoft.com/azure/foundry/agents/how-to/tools/model-context-protocol
+  FOUNDRY_PROJECT_ENDPOINT  e.g. https://<account>.services.ai.azure.com/api/projects/<project>
+  FOUNDRY_MODEL             e.g. gpt-5-mini
+  TOOLBOX_NAME              e.g. part03-tools (see create_toolbox.py)
 """
 
-import json
+import asyncio
 import os
 
+from agent_framework import Agent
+from agent_framework.foundry import FoundryChatClient, FoundryToolbox, to_prompt_agent
 from azure.ai.projects import AIProjectClient
-from azure.ai.agents.models import FunctionTool, ToolSet
 from azure.identity import DefaultAzureCredential
+
+AGENT_NAME = "from-edge-to-enterprise-agent"
 
 
 def get_weather(location: str, unit: str = "celsius") -> str:
     """Get the current weather for a location.
 
-    :param location: The city or location to look up.
-    :param unit: Temperature unit, either "celsius" or "fahrenheit".
-    :return: A JSON string with location, temperature, unit and condition.
+    Args:
+        location: The city or location to look up.
+        unit: Temperature unit, either "celsius" or "fahrenheit".
     """
     temperature = 18 if unit == "celsius" else 64
-    return json.dumps(
-        {"location": location, "temperature": temperature, "unit": unit, "condition": "Partly cloudy"}
-    )
+    return f'{{"location": "{location}", "temperature": {temperature}, "unit": "{unit}", "condition": "Partly cloudy"}}'
 
 
 def calculate(expression: str) -> str:
     """Evaluate a simple arithmetic expression, e.g. "42 * 17".
 
-    :param expression: An arithmetic expression using +, -, *, /, parentheses and numbers.
-    :return: A JSON string with the expression and its result, or an error.
+    Args:
+        expression: An arithmetic expression using +, -, *, /, parentheses and numbers.
     """
     allowed = set("0123456789+-*/(). ")
     if not all(c in allowed for c in expression):
-        return json.dumps({"error": "Invalid expression"})
+        return '{"error": "Invalid expression"}'
     try:
-        return json.dumps({"expression": expression, "result": eval(expression)})
-    except Exception as exc:  # noqa: BLE001 - surfaced back to the agent as a tool result
-        return json.dumps({"error": str(exc)})
+        return f'{{"expression": "{expression}", "result": {eval(expression)}}}'  # noqa: S307
+    except Exception as exc:  # noqa: BLE001 - surfaced back to the model as a tool result
+        return f'{{"error": "{exc}"}}'
 
 
-def main() -> None:
-    project_endpoint = os.environ["PROJECT_ENDPOINT"]
-    model_deployment = os.environ["MODEL_DEPLOYMENT_NAME"]
+async def main() -> None:
+    credential = DefaultAzureCredential()
+    client = FoundryChatClient(credential=credential)
 
-    project_client = AIProjectClient(
-        endpoint=project_endpoint,
-        credential=DefaultAzureCredential(),
+    # The toolbox is attached per-call, not baked into the agent: the published,
+    # declarative definition below stays limited to this agent's own function
+    # tools, which is what a versioned Foundry agent can currently express. A
+    # toolbox reference is either a local MCP client (works today, as here) or a
+    # server-executed hosted MCP tool via `client.get_mcp_tool(...)`, which needs
+    # a Foundry connection resource for server-to-server auth - one more step
+    # than this demo's scope covers.
+    agent = Agent(
+        client=client,
+        name=AGENT_NAME,
+        instructions=(
+            "You are a helpful assistant with access to tools. "
+            "Use them when needed to answer questions accurately."
+        ),
+        tools=[get_weather, calculate],
     )
 
-    with project_client:
-        toolset = ToolSet()
-        toolset.add(FunctionTool({get_weather, calculate}))
-        project_client.agents.enable_auto_function_calls(toolset)
-
-        agent = project_client.agents.create_agent(
-            model=model_deployment,
-            name="from-edge-to-enterprise-agent",
-            instructions=(
-                "You are a helpful assistant with access to tools. "
-                "Use them when needed to answer questions accurately."
-            ),
-            toolset=toolset,
-        )
-        print(f"Created agent, ID: {agent.id}")
-
-        thread = project_client.agents.threads.create()
-        print(f"Created thread, ID: {thread.id}")
+    async with FoundryToolbox(credential) as toolbox:
+        # Server-managed conversation: the app only ever holds this opaque ID.
+        session = agent.create_session()
 
         question = "What's the weather in Tokyo, and what is 42 * 17?"
-        project_client.agents.messages.create(thread_id=thread.id, role="user", content=question)
         print(f"[User]: {question}")
+        result = await agent.run(question, session=session)
+        print(f"[{AGENT_NAME}]: {result.text}")
+        print(f"Server-side conversation ID: {session.service_session_id}")
 
-        run = project_client.agents.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
-        print(f"Run finished with status: {run.status}")
-        if run.status == "failed":
-            print(f"Run failed: {run.last_error}")
+        follow_up = "Use your web search tool to find one recent Microsoft Foundry announcement."
+        print(f"[User]: {follow_up}")
+        result2 = await agent.run(follow_up, session=session, tools=[toolbox])
+        print(f"[{AGENT_NAME}]: {result2.text}")
 
-        for message in project_client.agents.messages.list(thread_id=thread.id):
-            for content in message.content:
-                if content.type == "text":
-                    print(f"[{message.role}]: {content.text.value}")
-
-        project_client.agents.delete_agent(agent.id)
-        print("Cleaned up agent.")
+    # Declarative, versioned agent lifecycle: publish the same function-tool
+    # definition this script just ran, so Foundry can serve it directly (see
+    # part03's README) - independent of the per-call toolbox above.
+    definition = to_prompt_agent(agent)
+    project_client = AIProjectClient(
+        endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
+        credential=credential,
+    )
+    version = project_client.agents.create_version(
+        agent_name=AGENT_NAME,
+        definition=definition,
+        description="Part 3 cloud migration demo agent.",
+    )
+    print(f"Published agent definition: {version.id} (version {version.version})")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

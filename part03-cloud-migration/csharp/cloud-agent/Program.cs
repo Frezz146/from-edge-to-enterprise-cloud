@@ -1,66 +1,82 @@
-// The C# counterpart to cloud_agent.py: create a hosted agent in Foundry
-// Agent Service, run one turn, print the response, and clean up.
+// The C# counterpart to cloud_agent.py: create a hosted agent in Foundry Agent
+// Service, run two turns on a server-managed conversation, and print the
+// responses.
 //
-// Function-tool wiring (mirroring the get_weather/calculate tools from
-// Parts 1-2) follows the same FunctionToolDefinition + RequiresAction poll
-// loop pattern documented at
-// https://learn.microsoft.com/dotnet/api/overview/azure/ai.agents.persistent-readme
-// - see cloud_agent.py in this part for the equivalent, fully worked example.
+// Function-tool wiring is no longer C#-specific plumbing to avoid duplicating:
+// Microsoft.Agents.AI.AzureAI's AsAIAgent()/RunAsync() puts C# on the same
+// Agent Framework surface as agent_framework.foundry in Python, so the same
+// get_weather/calculate tools attach here the same way - AIFunctionFactory.Create
+// reads the [Description] attributes the same way Python reads docstrings and
+// type hints. What Python additionally demonstrates - the Foundry Toolbox and
+// declarative, versioned agent publishing - stays Python-only in this part; see
+// cloud_agent.py and this part's README for why.
 //
 // Required environment variables:
 //   ProjectEndpoint       e.g. https://<account>.services.ai.azure.com/api/projects/<project>
-//   ModelDeploymentName   e.g. gpt-4o-mini
+//   ModelDeploymentName   e.g. gpt-5-mini
 
-using Azure.AI.Agents.Persistent;
+using System.ComponentModel;
+using Azure.AI.Projects;
 using Azure.Identity;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
 var projectEndpoint = Environment.GetEnvironmentVariable("ProjectEndpoint")
     ?? throw new InvalidOperationException("ProjectEndpoint is not set.");
 var modelDeploymentName = Environment.GetEnvironmentVariable("ModelDeploymentName")
     ?? throw new InvalidOperationException("ModelDeploymentName is not set.");
 
-// Identity is the one thing that has no local equivalent: a local Foundry
-// Local process never crossed an auth boundary, but every call here does.
-PersistentAgentsClient client = new(projectEndpoint, new DefaultAzureCredential());
-
-PersistentAgent agent = client.Administration.CreateAgent(
-    model: modelDeploymentName,
-    name: "from-edge-to-enterprise-agent",
-    instructions: "You are a helpful assistant.");
-Console.WriteLine($"Created agent, ID: {agent.Id}");
-
-PersistentAgentThread thread = client.Threads.CreateThread();
-Console.WriteLine($"Created thread, ID: {thread.Id}");
-
-const string question = "In two sentences, what changes when you move an AI agent from local inference to a hosted cloud agent service?";
-client.Messages.CreateMessage(thread.Id, MessageRole.User, question);
-Console.WriteLine($"[User]: {question}");
-
-ThreadRun run = client.Runs.CreateRun(thread.Id, agent.Id);
-do
+[Description("Get the current weather for a location.")]
+static string GetWeather(
+    [Description("The city or location to look up.")] string location,
+    [Description("Temperature unit, either celsius or fahrenheit.")] string unit = "celsius")
 {
-    Thread.Sleep(TimeSpan.FromMilliseconds(500));
-    run = client.Runs.GetRun(thread.Id, run.Id);
-}
-while (run.Status == RunStatus.Queued || run.Status == RunStatus.InProgress || run.Status == RunStatus.RequiresAction);
-
-if (run.Status == RunStatus.Failed)
-{
-    Console.WriteLine($"Run failed: {run.LastError?.Message}");
+    var temperature = unit == "celsius" ? 18 : 64;
+    return $"{{\"location\": \"{location}\", \"temperature\": {temperature}, \"unit\": \"{unit}\", \"condition\": \"Partly cloudy\"}}";
 }
 
-foreach (PersistentThreadMessage message in client.Messages.GetMessages(threadId: thread.Id, order: ListSortOrder.Ascending))
+[Description("Evaluate a simple arithmetic expression, e.g. \"42 * 17\".")]
+static string Calculate(
+    [Description("An arithmetic expression using +, -, *, / and numbers.")] string expression)
 {
-    foreach (MessageContent content in message.ContentItems)
+    var allowed = "0123456789+-*/(). ".ToHashSet();
+    if (!expression.All(allowed.Contains))
     {
-        if (content is MessageTextContent textItem)
-        {
-            Console.WriteLine($"[{message.Role}]: {textItem.Text}");
-        }
+        return "{\"error\": \"Invalid expression\"}";
+    }
+    try
+    {
+        var result = new System.Data.DataTable().Compute(expression, null);
+        return $"{{\"expression\": \"{expression}\", \"result\": {result}}}";
+    }
+    catch (Exception ex)
+    {
+        return $"{{\"error\": \"{ex.Message}\"}}";
     }
 }
 
-// Clean up - comment these out if you want to inspect the agent/thread in the portal.
-client.Threads.DeleteThread(threadId: thread.Id);
-client.Administration.DeleteAgent(agentId: agent.Id);
-Console.WriteLine("Cleaned up thread and agent.");
+// Identity is the one thing that has no local equivalent: a local Foundry
+// Local process never crossed an auth boundary, but every call here does.
+AIProjectClient projectClient = new(new Uri(projectEndpoint), new DefaultAzureCredential());
+
+AIFunction[] tools = [AIFunctionFactory.Create(GetWeather), AIFunctionFactory.Create(Calculate)];
+
+AIAgent agent = projectClient.AsAIAgent(
+    modelDeploymentName,
+    name: "from-edge-to-enterprise-agent",
+    instructions: "You are a helpful assistant with access to tools. Use them when needed to answer questions accurately.",
+    tools: tools);
+
+// Server-managed conversation: the app only ever holds this opaque ID.
+ChatClientAgentSession session = (ChatClientAgentSession)await agent.CreateSessionAsync();
+
+const string question = "What's the weather in Tokyo, and what is 42 * 17?";
+Console.WriteLine($"[User]: {question}");
+AgentResponse response = await agent.RunAsync(question, session);
+Console.WriteLine($"[{agent.Name}]: {response.Text}");
+Console.WriteLine($"Server-side conversation ID: {session.ConversationId}");
+
+const string followUp = "What was the second thing I just asked you to calculate?";
+Console.WriteLine($"[User]: {followUp}");
+AgentResponse response2 = await agent.RunAsync(followUp, session);
+Console.WriteLine($"[{agent.Name}]: {response2.Text}");

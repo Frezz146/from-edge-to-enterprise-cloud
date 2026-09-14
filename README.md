@@ -49,8 +49,18 @@ See [part02-mcp-orchestration/README.md](part02-mcp-orchestration/README.md) for
 
 ### Part 03 - Cloud migration
 
-Requires a Microsoft Foundry project with a deployed model. See
-[part03-cloud-migration/README.md](part03-cloud-migration/README.md) for setup and the Python/C# quickstarts.
+```bash
+cd part03-cloud-migration/infra
+az deployment group create \
+  --resource-group <your-resource-group> \
+  --template-file main.bicep \
+  --parameters main.bicepparam
+```
+
+Provisions a Microsoft Foundry project, model deployment, and managed identity
+with Bicep, then registers a Foundry Toolbox and runs the Part 1-2 agent
+against it. See [part03-cloud-migration/README.md](part03-cloud-migration/README.md)
+for the full setup, RBAC, and the Python/C# quickstarts.
 
 ### Part 04 - Observability and evaluations
 
@@ -104,8 +114,13 @@ from-edge-to-enterprise-cloud/
 │           └── Program.cs
 ├── part03-cloud-migration/
 │   ├── README.md
+│   ├── part3-architecture-diagram.png
+│   ├── infra/
+│   │   ├── main.bicep
+│   │   └── main.bicepparam
 │   ├── python/
 │   │   ├── requirements.txt
+│   │   ├── create_toolbox.py
 │   │   └── cloud_agent.py
 │   └── csharp/
 │       └── cloud-agent/
