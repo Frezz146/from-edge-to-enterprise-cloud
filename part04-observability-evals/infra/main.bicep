@@ -37,6 +37,12 @@ param projectName string = 'part03-cloud-migration'
 @description('GitHub repository (owner/name) that is allowed to sign in as the agent identity via OIDC.')
 param githubRepository string = 'Frezz146/from-edge-to-enterprise-cloud'
 
+@description('Numeric GitHub owner ID. Together with githubRepositoryId it selects the immutable OIDC subject format. Get both with: gh api repos/<owner>/<name> --jq ".owner.id, .id"')
+param githubOwnerId string = ''
+
+@description('Numeric GitHub repository ID. Leave both IDs empty for the legacy subject format repo:<owner>/<name>:...')
+param githubRepositoryId string = ''
+
 @description('Optional object ID of your own Entra ID user, for running the gate and reading traces locally. Leave empty to skip.')
 param developerPrincipalId string = ''
 
@@ -155,6 +161,16 @@ resource projectConnection 'Microsoft.CognitiveServices/accounts/projects/connec
 
 // --- 3. GitHub Actions OIDC federated credentials -----------------------------------
 // One subject per trigger: pull requests (the quality gate) and pushes to main.
+// GitHub presents the subject in one of two formats, and it has to match
+// exactly or azure/login fails with AADSTS700213:
+//   legacy     repo:<owner>/<name>:ref:refs/heads/main
+//   immutable  repo:<owner>@<ownerId>/<name>@<repoId>:ref:refs/heads/main
+// This repository gets the immutable format, verified in its first CI run.
+var githubOwner = split(githubRepository, '/')[0]
+var githubName = split(githubRepository, '/')[1]
+var githubSubjectRepo = empty(githubRepositoryId)
+  ? githubRepository
+  : '${githubOwner}@${githubOwnerId}/${githubName}@${githubRepositoryId}'
 // Federated credentials on one identity cannot be written in parallel, hence
 // the explicit dependsOn.
 
@@ -163,7 +179,7 @@ resource githubPullRequest 'Microsoft.ManagedIdentity/userAssignedIdentities/fed
   name: 'github-pull-request'
   properties: {
     issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${githubRepository}:pull_request'
+    subject: 'repo:${githubSubjectRepo}:pull_request'
     audiences: [
       'api://AzureADTokenExchange'
     ]
@@ -175,7 +191,7 @@ resource githubMain 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedI
   name: 'github-main'
   properties: {
     issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${githubRepository}:ref:refs/heads/main'
+    subject: 'repo:${githubSubjectRepo}:ref:refs/heads/main'
     audiences: [
       'api://AzureADTokenExchange'
     ]

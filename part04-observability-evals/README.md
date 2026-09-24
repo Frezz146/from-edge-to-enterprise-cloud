@@ -250,6 +250,7 @@ Problems found and fixed while verifying:
 | `error OPENAI001` in the C# build | The `ChatClient` constructor that takes an `AuthenticationPolicy` (Entra ID auth) is experimental | `OPENAI001` added to `NoWarn`, next to `AIEVAL001` |
 | `You must install or update .NET to run this application` | net8.0 apps on a machine with only the .NET 10 runtime | `RollForward=Major` in every C# project of the repository, including the Part 2 `mcp-server` that eval-runner spawns |
 | C# server only says `An error occurred invoking ...` | The C# MCP server hides the validation detail | The runner prints the rejected arguments plus the judge's reason when it says inaccurate |
+| `AADSTS700213` in the first `cloud-gate` run on GitHub | GitHub sends this repository's OIDC subject in the immutable format with owner and repository IDs; the federated credentials used the legacy format | `githubOwnerId` and `githubRepositoryId` parameters in `main.bicep`, set in `main.bicepparam` |
 | `429` rate limit responses from the judge | Gate, cloud backend and judge share one 10,000 TPM deployment | Retried automatically by the SDK; raise capacity or split the judge deployment |
 
 ## Tracing across the hybrid stack
@@ -339,6 +340,16 @@ not secrets, which is the point:
 
 Then protect `main` with a branch rule that requires the `local-gate` (and, once
 configured, `cloud-gate`) checks.
+
+The OIDC subject has to match exactly. GitHub presents it either in the legacy
+format `repo:<owner>/<name>:ref:refs/heads/main` or in the immutable format
+`repo:<owner>@<ownerId>/<name>@<repoId>:ref:refs/heads/main`, which this
+repository gets. `main.bicepparam` therefore sets `githubOwnerId` and
+`githubRepositoryId`. For your own fork, read both IDs with
+`gh api repos/<owner>/<name> --jq ".owner.id, .id"`. Leave them empty for
+the legacy format. A mismatch shows up in `azure/login` as `AADSTS700213: No
+matching federated identity record found for presented assertion subject`.
+The error message contains the subject GitHub actually sent.
 
 ## What this part deliberately does not do
 
