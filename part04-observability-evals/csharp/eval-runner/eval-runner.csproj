@@ -10,7 +10,7 @@
          OPENAI001  the OpenAI ChatClient constructor that takes an AuthenticationPolicy,
                     which is how the judge authenticates with Entra ID instead of a key -->
     <NoWarn>$(NoWarn);AIEVAL001;OPENAI001</NoWarn>
-    <!-- net8.0 (LTS) target, but also runs on a machine that only has a newer
+    <!-- Targets net8.0 (LTS), but also runs on a machine that only has a newer
          runtime such as .NET 10 instead of failing at startup. -->
     <RollForward>Major</RollForward>
   </PropertyGroup>

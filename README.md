@@ -155,6 +155,8 @@ from-edge-to-enterprise-cloud/
 └── LICENSE
 ```
 
+All C# samples target net8.0 (LTS) and set `RollForward=Major` in their `.csproj`, so they also run on a machine that only has a newer runtime such as .NET 10.
+
 Every C# sample lives in its own named subfolder under `csharp/` (`csharp/<project-name>/<project-name>.csproj`), even where a part only has one project. The .NET SDK includes every `.cs` file under a project's directory by default, so two top-level-statement programs cannot share a folder without colliding. One project per folder keeps every part's C# layout identical.
 
 All four parts are implemented end to end in both Python and C#. Each part's own README covers prerequisites, setup and what to look for when you run it.

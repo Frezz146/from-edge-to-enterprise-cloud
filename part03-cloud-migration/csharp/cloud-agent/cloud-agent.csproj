@@ -4,6 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Targets net8.0 (LTS), but also runs on a machine that only has a newer
+         runtime such as .NET 10 instead of failing at startup. -->
+    <RollForward>Major</RollForward>
   </PropertyGroup>
 
   <ItemGroup>
