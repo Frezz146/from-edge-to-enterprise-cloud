@@ -236,6 +236,10 @@ What these numbers show:
   presentation); Part 4 confirms the effect with a different harness. The C#
   runner therefore defaults to `qwen3.5-4b`, which matches its Part 2 score of
   9/10.
+- **CI matches the developer machine.** On GitHub's hosted Ubuntu runner (CPU
+  execution providers) `local-gate` produced the same 8/10 with the same two
+  rejected cases as the MacBook. `cloud-gate` passed with 10/10 and a judge
+  score of 5.00 once the OIDC subject was fixed (see below).
 - **Traces arrive in both loops.** `traced_agent.py` exported to Application
   Insights with Entra ID only ingestion and to a local Aspire Dashboard;
   `eval_pipeline.py --trace otlp` did the same for the gate.
