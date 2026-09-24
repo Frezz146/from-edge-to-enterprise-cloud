@@ -59,9 +59,9 @@ the average.
   group.
 - `az login`.
 - Python 3.11 or newer (verified with 3.14) or the .NET 8 SDK or newer (verified
-  with .NET 10) for the language track you run. All C# samples target net8.0;
-  the repository's `Directory.Build.props` sets `RollForward=Major`, so they also
-  run on a machine that only has a newer runtime.
+  with .NET 10) for the language track you run. The C# projects target net8.0.
+  `eval-runner` and the Part 2 `mcp-server` it starts set `RollForward=Major`,
+  so they also run on a machine that only has a newer runtime.
 
 ## Provision the infrastructure
 
@@ -248,7 +248,7 @@ Problems found and fixed while verifying:
 | (preventive) judge on an old API version | The evaluators default to `api_version` 2024-02-15-preview | `eval_pipeline.py` sets 2025-04-01-preview |
 | `MSB4025 An XML comment cannot contain '--'` | A comment in the `.csproj` mentioned the `--judge` flag | Reworded |
 | `error OPENAI001` in the C# build | The `ChatClient` constructor that takes an `AuthenticationPolicy` (Entra ID auth) is experimental | `OPENAI001` added to `NoWarn`, next to `AIEVAL001` |
-| `You must install or update .NET to run this application` | net8.0 apps on a machine with only the .NET 10 runtime | `Directory.Build.props` with `RollForward=Major` in the repository root |
+| `You must install or update .NET to run this application` | net8.0 apps on a machine with only the .NET 10 runtime | `RollForward=Major` in `eval-runner.csproj` and in the Part 2 `mcp-server.csproj` that it spawns |
 | C# server only says `An error occurred invoking ...` | The C# MCP server hides the validation detail | The runner prints the rejected arguments plus the judge's reason when it says inaccurate |
 | `429` rate limit responses from the judge | Gate, cloud backend and judge share one 10,000 TPM deployment | Retried automatically by the SDK; raise capacity or split the judge deployment |
 

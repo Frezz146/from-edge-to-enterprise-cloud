@@ -151,12 +151,9 @@ from-edge-to-enterprise-cloud/
 │       └── eval-runner/
 │           ├── eval-runner.csproj
 │           └── Program.cs
-├── Directory.Build.props             RollForward=Major for every C# project
 ├── .gitignore
 └── LICENSE
 ```
-
-All C# samples target net8.0 (LTS). `Directory.Build.props` in the repository root sets `RollForward=Major`, so they also run on a machine that only has a newer runtime such as .NET 10.
 
 Every C# sample lives in its own named subfolder under `csharp/` (`csharp/<project-name>/<project-name>.csproj`), even where a part only has one project. The .NET SDK includes every `.cs` file under a project's directory by default, so two top-level-statement programs cannot share a folder without colliding. One project per folder keeps every part's C# layout identical.
 

@@ -4,6 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Also runs on a newer runtime such as .NET 10 only. Needed because the
+         Part 4 eval-runner spawns this server with dotnet run. -->
+    <RollForward>Major</RollForward>
   </PropertyGroup>
 
   <ItemGroup>
