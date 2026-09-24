@@ -1,0 +1,10 @@
+<Project>
+  <!-- Every C# sample in this repository targets net8.0 (LTS). RollForward=Major
+       lets them run on a machine that only has a newer runtime installed, for
+       example only .NET 10, instead of failing at startup with "You must
+       install or update .NET to run this application". This also covers the
+       Part 2 MCP server that the Part 4 eval-runner spawns with dotnet run. -->
+  <PropertyGroup>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+</Project>

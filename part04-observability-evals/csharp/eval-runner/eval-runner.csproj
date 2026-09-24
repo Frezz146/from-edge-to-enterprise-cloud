@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Two experimental APIs, acknowledged here once instead of scattering
+         #pragma through the code:
+         AIEVAL001  the quality evaluators in Microsoft.Extensions.AI.Evaluation.Quality
+         OPENAI001  the OpenAI ChatClient constructor that takes an AuthenticationPolicy,
+                    which is how the judge authenticates with Entra ID instead of a key -->
+    <NoWarn>$(NoWarn);AIEVAL001;OPENAI001</NoWarn>
+  </PropertyGroup>
+
+  <!-- Microsoft.AI.Foundry.Local ships native runtime assets, so a concrete
+       RuntimeIdentifier is required even for `dotnet run`/`dotnet build`. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)'==''">
+    <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Same pins as part02-mcp-orchestration/csharp/schema-hardening-eval -->
+    <PackageReference Include="Microsoft.AI.Foundry.Local" Version="1.2.4" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <!-- Same pin as part03-cloud-migration/csharp/cloud-agent -->
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <!-- LLM judge (only used with the judge flag). Floating within the 10.x line on
+         purpose: the evaluators are experimental and still gaining fixes. -->
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.*" />
+  </ItemGroup>
+</Project>

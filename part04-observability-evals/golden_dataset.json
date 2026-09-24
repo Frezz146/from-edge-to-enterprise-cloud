@@ -1,0 +1,122 @@
+{
+    "version": 3,
+    "description": "Golden dataset for the Part 4 quality gate. The ten booking scenarios from the Part 2 schema hardening study, frozen as data with their expected tool call. Both language tracks read this file: python/eval_pipeline.py and csharp/eval-runner. Expected parameters use the snake_case shape of the Python MCP server; the C# runner maps them to its camelCase arguments before comparing. min_tool_call_accuracy is the mean of Python's 1 to 5 judge score, min_judge_pass_rate the share of calls the .NET judge (a boolean metric) rates as accurate.",
+    "tool": "book_appointment_strict",
+    "quality_gate": {
+        "min_clean_call_rate": 0.8,
+        "min_tool_call_accuracy": 4.0,
+        "min_judge_pass_rate": 0.8
+    },
+    "cases": [
+        {
+            "id": "case_01_explicit",
+            "query": "Schedule a high-priority 30-minute meeting with Jamie Chen (jamie.chen@example.com) to discuss the Q3 roadmap.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Jamie Chen", "email": "jamie.chen@example.com" },
+                "topics": ["Q3 roadmap"],
+                "priority": "high",
+                "duration_minutes": 30
+            }
+        },
+        {
+            "id": "case_02_two_topics",
+            "query": "Set up a medium-priority, half-hour call with Alex Kim (alex.kim@example.com) to cover the MCP rollout and the Q3 roadmap.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Alex Kim", "email": "alex.kim@example.com" },
+                "topics": ["MCP rollout", "Q3 roadmap"],
+                "priority": "medium",
+                "duration_minutes": 30
+            }
+        },
+        {
+            "id": "case_03_informal_low_key",
+            "query": "Set up a quick 15-minute, low-key chat with Sam Rivera (sam.rivera@example.com) about onboarding feedback - nothing urgent.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Sam Rivera", "email": "sam.rivera@example.com" },
+                "topics": ["onboarding feedback"],
+                "priority": "low",
+                "duration_minutes": 15
+            }
+        },
+        {
+            "id": "case_04_one_hour",
+            "query": "Book a high-priority one-hour meeting with Morgan Lee (morgan.lee@example.com) about the security audit.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Morgan Lee", "email": "morgan.lee@example.com" },
+                "topics": ["security audit"],
+                "priority": "high",
+                "duration_minutes": 60
+            }
+        },
+        {
+            "id": "case_05_three_topics",
+            "query": "Arrange a medium-priority 45-minute session with Taylor Brooks (taylor.brooks@example.com) to go over hiring, budget planning, and vendor contracts.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Taylor Brooks", "email": "taylor.brooks@example.com" },
+                "topics": ["hiring", "budget planning", "vendor contracts"],
+                "priority": "medium",
+                "duration_minutes": 45
+            }
+        },
+        {
+            "id": "case_06_urgent",
+            "query": "This is urgent - set up a high-priority 20-minute call with Priya Patel (priya.patel@example.com) about the production outage.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Priya Patel", "email": "priya.patel@example.com" },
+                "topics": ["production outage"],
+                "priority": "high",
+                "duration_minutes": 20
+            }
+        },
+        {
+            "id": "case_07_no_rush",
+            "query": "Just a quick ten-minute, no-rush chat with Devon Clarke (devon.clarke@example.com) about the intern onboarding checklist.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Devon Clarke", "email": "devon.clarke@example.com" },
+                "topics": ["intern onboarding checklist"],
+                "priority": "low",
+                "duration_minutes": 10
+            }
+        },
+        {
+            "id": "case_08_standard_priority",
+            "query": "Schedule a standard-priority 30-minute sync with Riley Nguyen (riley.nguyen@example.com) covering the Q4 planning doc.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Riley Nguyen", "email": "riley.nguyen@example.com" },
+                "topics": ["Q4 planning doc"],
+                "priority": "medium",
+                "duration_minutes": 30
+            }
+        },
+        {
+            "id": "case_09_two_low_topics",
+            "query": "Set up a low-priority 15-minute check-in with Casey Morgan (casey.morgan@example.com) about desk setup and badge access.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Casey Morgan", "email": "casey.morgan@example.com" },
+                "topics": ["desk setup", "badge access"],
+                "priority": "low",
+                "duration_minutes": 15
+            }
+        },
+        {
+            "id": "case_10_critical",
+            "query": "This is critical - schedule a high-priority 60-minute review with Jordan Ellis (jordan.ellis@example.com) covering the compliance audit and the incident report.",
+            "expected_tool": "book_appointment_strict",
+            "expected_parameters": {
+                "attendee": { "name": "Jordan Ellis", "email": "jordan.ellis@example.com" },
+                "topics": ["compliance audit", "incident report"],
+                "priority": "high",
+                "duration_minutes": 60
+            }
+        }
+    ]
+}

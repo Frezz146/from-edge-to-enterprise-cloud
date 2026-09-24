@@ -117,3 +117,7 @@ logs/
 # Local secrets and machine-specific configuration
 secrets/
 *.local
+
+# Blog drafts and local verification runs (kept next to the code, never committed)
+blog-part*.md
+verify-part*.sh

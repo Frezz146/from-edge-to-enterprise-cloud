@@ -1,45 +1,108 @@
-name: Agent regression evals
+name: GenAIOps quality gates
+
+# Part 4: two gates over the same golden dataset (part04-observability-evals/golden_dataset.json).
+#   local-gate  a Foundry Local model on the runner, deterministic Part 2 taxonomy.
+#               Needs no Azure access and no secrets, so it also runs for forks.
+#   cloud-gate  the Part 3 gpt-5-mini deployment plus the ToolCallAccuracyEvaluator
+#               judge, signed in through OIDC. Runs once the repository variables
+#               from `az deployment group create` (part04 infra) are set.
 
 on:
+  pull_request:
+    paths:
+      - "part02-mcp-orchestration/python/**"
+      - "part04-observability-evals/**"
+      - ".github/workflows/eval.yml"
   push:
     branches: [main]
     paths:
+      - "part02-mcp-orchestration/python/**"
       - "part04-observability-evals/**"
-      - "part01-local-development/python/**"
-  pull_request:
-    paths:
-      - "part04-observability-evals/**"
-      - "part01-local-development/python/**"
+      - ".github/workflows/eval.yml"
   workflow_dispatch:
+    inputs:
+      local_model:
+        description: "Foundry Local model alias for the local gate"
+        default: "qwen2.5-1.5b"
+
+permissions:
+  contents: read
+
+env:
+  # The model under test. Changing this line in a pull request is exactly the
+  # kind of change the gate exists to check (see the Part 4 README).
+  FOUNDRY_LOCAL_MODEL: ${{ inputs.local_model || 'qwen2.5-1.5b' }}
 
 jobs:
-  groundedness-gate:
-    # Foundry Local falls back to CPU execution providers when no NPU/GPU is
-    # available, so a hosted runner works - expect slower inference than on
+  local-gate:
+    # Foundry Local falls back to CPU execution providers when no NPU or GPU is
+    # available, so a hosted runner works; expect slower inference than on
     # developer hardware. Prefer a self-hosted runner for consistent timing.
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: part04-observability-evals/python
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: part04-observability-evals/python/requirements.txt
 
       - name: Install dependencies
-        working-directory: part04-observability-evals/python
         run: python -m pip install -r requirements.txt
 
-      - name: Run groundedness regression gate
-        working-directory: part04-observability-evals/python
-        env:
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
-        run: python eval_pipeline.py
+      - name: Local quality gate (${{ env.FOUNDRY_LOCAL_MODEL }})
+        run: python eval_pipeline.py --backend local --model "$FOUNDRY_LOCAL_MODEL"
 
-      - name: Upload evaluation results
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evaluation-results
+          name: eval-results-local
+          path: part04-observability-evals/python/evaluation_results.json
+
+  cloud-gate:
+    if: ${{ vars.AZURE_CLIENT_ID != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets azure/login exchange the GitHub OIDC token, no client secret
+    defaults:
+      run:
+        working-directory: part04-observability-evals/python
+    env:
+      AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+      FOUNDRY_PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+      FOUNDRY_MODEL: gpt-5-mini
+      JUDGE_MODEL: gpt-5-mini
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: part04-observability-evals/python/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Azure login (OIDC, federated credential from part04 infra)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Cloud quality gate (gpt-5-mini, LLM judge, traced to Application Insights)
+        run: python eval_pipeline.py --backend cloud --judge --trace azure
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-cloud
           path: part04-observability-evals/python/evaluation_results.json
